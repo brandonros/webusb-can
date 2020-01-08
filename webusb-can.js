@@ -1,17 +1,17 @@
 const moduleArbitrationIds = {
-  cpc: {
+  'w213-cpc': {
     source: 0x7E5,
     destination: 0x7ED
   },
-  tcu: {
+  'w213-tcu': {
     source: 0x749,
     destination: 0x729
   },
-  suspension: {
+  'w213-suspension': {
     source: 0x744,
     destination: 0x724
   },
-  ecu: {
+  'w213-ecu': {
     source: 0x7E0,
     destination: 0x7E8
   }
