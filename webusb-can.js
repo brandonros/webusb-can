@@ -231,7 +231,7 @@ const initEvents = () => {
     try {
       device = await initDevice()
       initReadLoop()
-      document.querySelector('#status').innerHTML = 'status: connected'
+      document.querySelector('#status').innerHTML = `status: connected (${device.productName})`
     } catch (err) {
       alert(err)
     }
