@@ -42,6 +42,8 @@ const USB_DIR_IN = 0x80
 const USB_TYPE_VENDOR = (0x02 << 5)
 const USB_RECIP_INTERFACE = 0x01
 
+let device = null
+
 const buf2hex = (buf) => Array.prototype.map.call(new Uint8Array(buf), x => ('00' + x.toString(16)).slice(-2)).join('')
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
@@ -190,7 +192,24 @@ const initDevice = async () => {
   return device
 }
 
-const initEvents = (device) => {
+const initReadLoop = async () => {
+  readLoop(device, (result) => {
+    if (buf2hex(result.data.buffer).includes('ffffffffe807')) {
+      alert('got it')
+    }
+    const arbitrationId = result.data.getUint16(4, true)
+    const frame = buf2hex(result.data.buffer).slice(24)
+    const stringifiedFrame = JSON.stringify({
+      type: 'in',
+      arbitration_id: arbitrationId.toString(16).padStart(3, '0'),
+      frame,
+      captured: new Date().toISOString()
+    })
+    document.querySelector('#logs').value += `${stringifiedFrame}\n`
+  })
+}
+
+const initEvents = () => {
   const $module = document.querySelector('#module')
   const $message = document.querySelector('#message')
 
@@ -208,28 +227,25 @@ const initEvents = (device) => {
     // TODO: send continuation frame?
   })
 
-  readLoop(device, (result) => {
-    if (buf2hex(result.data.buffer).includes('ffffffffe807')) {
-      alert('got it')
+  document.querySelector('#open').addEventListener('click', async () => {
+    try {
+      device = await initDevice()
+      initReadLoop()
+      document.querySelector('#status').innerHTML = 'status: connected'
+    } catch (err) {
+      alert(err)
     }
-    const arbitrationId = result.data.getUint16(4, true)
-    const frame = buf2hex(result.data.buffer).slice(24)
-    const stringifiedFrame = JSON.stringify({
-      type: 'in',
-      arbitration_id: arbitrationId.toString(16).padStart(3, '0'),
-      frame,
-      captured: new Date().toISOString()
-    })
-    document.querySelector('#logs').value += `${stringifiedFrame}\n`
+  })
+
+  document.querySelector('#close').addEventListener('click', async () => {
+    try {
+      await device.close()
+      device = null
+      document.querySelector('#status').innerHTML = 'status: not connected'
+    } catch (err) {
+      alert(err)
+    }
   })
 }
 
-document.querySelector('#init').addEventListener('click', async () => {
-  try {
-    const device = await initDevice()
-    initEvents(device)
-    document.querySelector('#status').innerHTML = 'status: connected'
-  } catch (err) {
-    alert(err)
-  }
-})
+initEvents()
