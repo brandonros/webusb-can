@@ -192,6 +192,11 @@ const initDevice = async () => {
   return device
 }
 
+const log = (frame) => {
+  const last1000Lines = document.querySelector('#logs').value.split('\n').slice(0, 1000).join('\n')
+  document.querySelector('#logs').value = `${frame}\n${last1000Lines}`
+}
+
 const initReadLoop = async () => {
   readLoop(device, (result) => {
     if (buf2hex(result.data.buffer).includes('ffffffffe807')) {
@@ -205,7 +210,7 @@ const initReadLoop = async () => {
       frame,
       captured: new Date().toISOString()
     })
-    document.querySelector('#logs').value = `${stringifiedFrame}\n${document.querySelector('#logs').value}`
+    log(stringifiedFrame)
   })
 }
 
@@ -223,7 +228,7 @@ const initEvents = () => {
       frame: buf2hex(frame),
       sent: new Date().toISOString()
     })
-    document.querySelector('#logs').value = `${stringifiedFrame}\n${document.querySelector('#logs').value}`
+    log(stringifiedFrame)
     // TODO: send continuation frame?
   })
 
