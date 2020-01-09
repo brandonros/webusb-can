@@ -205,7 +205,7 @@ const initReadLoop = async () => {
       frame,
       captured: new Date().toISOString()
     })
-    document.querySelector('#logs').value += `${stringifiedFrame}\n`
+    document.querySelector('#logs').value = `${stringifiedFrame}\n${value}`
   })
 }
 
@@ -223,7 +223,7 @@ const initEvents = () => {
       frame: buf2hex(frame),
       sent: new Date().toISOString()
     })
-    document.querySelector('#logs').value += `${stringifiedFrame}\n`
+    document.querySelector('#logs').value = `${stringifiedFrame}\n${value}`
     // TODO: send continuation frame?
   })
 
