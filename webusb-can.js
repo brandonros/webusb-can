@@ -200,7 +200,7 @@ const log = (frame) => {
 const initReadLoop = async () => {
   readLoop(device, async (result) => {
     if (buf2hex(result.data.buffer) === 'ffffffffe0070000080000000322f12100000000') {
-      await send(device, 0x7E8, Buffer.from([0x10, 0x21, 0x62, 0xF1, 0x21, 0x31, 0x37, 0x37]))
+      await send(device, 0x7E8, [0x10, 0x21, 0x62, 0xF1, 0x21, 0x31, 0x37, 0x37])
     }
     if (buf2hex(result.data.buffer).includes('ffffffffe807')) {
       alert('got it')
