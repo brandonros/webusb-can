@@ -110,6 +110,7 @@ const drainSendQueue = async (device) => {
   while (sendQueue.length) {
     const frame = sendQueue.shift()
     await send(device, frame)
+    log(`> ${frame}`)
   }
 }
 
@@ -159,7 +160,7 @@ const log = (frame) => {
 
 const initReadWriteLoop = async () => {
   readWriteLoop(device, (result) => {
-    log(buf2hex(result.data.buffer))
+    log(`< ${buf2hex(result.data.buffer)}`)
   })
 }
 
