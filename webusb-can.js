@@ -184,6 +184,7 @@ const initDevice = async () => {
     await device.selectConfiguration(configuration.configurationValue)
   }
   await device.claimInterface(configuration.interfaces[0].interfaceNumber)
+  await device.selectAlternateInterface(configuration.interfaces[0].interfaceNumber, 0)
   await resetDevice(device)
   await sendHostConfig(device)
   const deviceConfig = await readDeviceConfig(device)
