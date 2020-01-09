@@ -135,8 +135,7 @@ const readLoop = async (device, cb) => {
     throw new Error('Read error')
   }
   cb(result)
-  await delay(16)
-  return readLoop(device, cb)
+  readLoop(device, cb)
 }
 
 const send = async (device, arbitrationId, message) => {
