@@ -129,7 +129,7 @@ const startDevice = async (device) => {
 const readLoop = async (device, cb) => {
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
   const endpointNumber = endpoint.endpointNumber
-  const frameLength = 0x20
+  const frameLength = 0x14
   const result = await device.transferIn(endpointNumber, frameLength)
   if (result.status !== 'ok' || !result.data || result.data.byteLength !== frameLength) {
     throw new Error('Read error')
@@ -202,7 +202,7 @@ const initReadLoop = async () => {
     if (buf2hex(result.data.buffer).includes('ffffffffe807')) {
       alert('got it')
     }
-    const arbitrationId = result.data.getUint16(4, true)
+    /*const arbitrationId = result.data.getUint16(4, true)
     const frame = buf2hex(result.data.buffer).slice(24)
     const stringifiedFrame = JSON.stringify({
       type: 'in',
@@ -210,7 +210,8 @@ const initReadLoop = async () => {
       frame,
       captured: new Date().toISOString()
     })
-    log(stringifiedFrame)
+    log(stringifiedFrame)*/
+    log(buf2hex(result.data.buffer))
   })
 }
 
