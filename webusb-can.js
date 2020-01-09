@@ -27,13 +27,7 @@ const messages = {
 }
 
 const GS_USB_BREQ_HOST_FORMAT = 0
-const GS_USB_BREQ_BITTIMING = 1
 const GS_USB_BREQ_MODE = 2
-const GS_USB_BREQ_BERR = 3
-const GS_USB_BREQ_BT_CONST = 4
-const GS_USB_BREQ_DEVICE_CONFIG = 5
-const GS_USB_BREQ_TIMESTAMP = 6
-const GS_USB_BREQ_IDENTIFY = 7
 
 const GS_CAN_MODE_RESET = 0
 const GS_CAN_MODE_START = 1
@@ -49,7 +43,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const setDeviceMode = async (device, mode, flags) => {
   const bRequest = GS_USB_BREQ_MODE
-  const wValue = 0
+  const wValue = 0 // https://github.com/torvalds/linux/blob/master/drivers/net/can/usb/gs_usb.c#L255
   const wIndex = device.configurations[0].interfaces[0].interfaceNumber
   const data = new ArrayBuffer(8)
   const dataView = new DataView(data)
@@ -66,7 +60,7 @@ const setDeviceMode = async (device, mode, flags) => {
 
 const sendHostConfig = async (device) => {
   const bRequest = GS_USB_BREQ_HOST_FORMAT
-  const wValue = 1
+  const wValue = 1 // https://github.com/torvalds/linux/blob/master/drivers/net/can/usb/gs_usb.c#L920
   const wIndex = device.configurations[0].interfaces[0].interfaceNumber
   const data = new ArrayBuffer(4)
   const dataView = new DataView(data)
