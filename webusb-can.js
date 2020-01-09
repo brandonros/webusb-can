@@ -123,9 +123,9 @@ const readWriteLoop = async (device, cb) => {
   await drainSendQueue(device)
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
   const endpointNumber = endpoint.endpointNumber
-  const frameLength = 0x14
-  const result = await device.transferIn(endpointNumber, frameLength)
-  if (result.status !== 'ok' || !result.data || result.data.byteLength !== frameLength) {
+  const maxFrameLength = 32
+  const result = await device.transferIn(endpointNumber, maxFrameLength)
+  if (result.status !== 'ok') {
     throw new Error('Read error')
   }
   cb(result)
