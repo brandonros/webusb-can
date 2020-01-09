@@ -37,6 +37,8 @@ const GS_USB_BREQ_IDENTIFY = 7
 const GS_CAN_MODE_RESET = 0
 const GS_CAN_MODE_START = 1
 
+const GS_CAN_MODE_PAD_PKTS_TO_MAX_PKT_SIZE = (1 << 7)
+
 let device = null
 const sendQueue = []
 
@@ -151,7 +153,7 @@ const initDevice = async () => {
   await device.selectAlternateInterface(configuration.interfaces[0].interfaceNumber, 0)
   await setDeviceMode(device, GS_CAN_MODE_RESET, 0x00000000)
   await sendHostConfig(device)
-  await setDeviceMode(device, GS_CAN_MODE_START, 0x00000000)
+  await setDeviceMode(device, GS_CAN_MODE_START, GS_CAN_MODE_PAD_PKTS_TO_MAX_PKT_SIZE)
   return device
 }
 
