@@ -129,7 +129,7 @@ const startDevice = async (device) => {
 const readLoop = async (device, cb) => {
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
   const endpointNumber = endpoint.endpointNumber
-  const frameLength = 0x14
+  const frameLength = 0x20
   const result = await device.transferIn(endpointNumber, frameLength)
   if (result.status !== 'ok' || !result.data || result.data.byteLength !== frameLength) {
     throw new Error('Read error')
