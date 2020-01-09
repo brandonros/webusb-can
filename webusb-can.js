@@ -43,6 +43,7 @@ const USB_TYPE_VENDOR = (0x02 << 5)
 const USB_RECIP_INTERFACE = 0x01
 
 let device = null
+const sendQueue = []
 
 const buf2hex = (buf) => Array.prototype.map.call(new Uint8Array(buf), x => ('00' + x.toString(16)).slice(-2)).join('')
 
@@ -126,28 +127,18 @@ const startDevice = async (device) => {
   }, data)
 }
 
-const readLoop = async (device, cb) => {
-  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
-  const endpointNumber = endpoint.endpointNumber
-  const frameLength = 0x14
-  const result = await device.transferIn(endpointNumber, frameLength)
-  if (result.status !== 'ok' || !result.data || result.data.byteLength !== frameLength) {
-    throw new Error('Read error')
-  }
-  cb(result)
-  readLoop(device, cb)
-}
-
 const send = async (device, arbitrationId, message) => {
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out')
   const endpointNumber = endpoint.endpointNumber
   const frameLength = 0x14
   const data = new ArrayBuffer(frameLength)
   const dataView = new DataView(data)
-  dataView.setUint32(0x00, 0xffffffff, true)
-  dataView.setUint16(0x04, arbitrationId, true)
-  dataView.setUint16(0x06, 0x0000, true)
-  dataView.setUint32(0x08, 0x00000008, true)
+  dataView.setUint32(0x00, 0xffffffff, true) // echo_id
+  dataView.setUint32(0x04, arbitrationId, true) // can_id
+  dataView.setUint8(0x08, 0x00) // can_dlc
+  dataView.setUint8(0x09, 0x00) // channel
+  dataView.setUint8(0x0A, 0x00) // flags
+  dataView.setUint8(0x0B, 0x00) // reserved
   dataView.setUint8(0x0C, message[0])
   dataView.setUint8(0x0D, message[1])
   dataView.setUint8(0x0E, message[2])
@@ -159,9 +150,29 @@ const send = async (device, arbitrationId, message) => {
   console.log(`> ${buf2hex(data)}`)
   const result = await device.transferOut(endpointNumber, data)
   if (result.status !== 'ok' || result.bytesWritten !== frameLength) {
-    throw new Error('Write errir')
+    throw new Error('Write error')
   }
   return result
+}
+
+const drainSendQueue = async (device) => {
+  while (sendQueue.length) {
+    const frame = sendQueue.shift()
+    await send(device, frame.id, frame.data)
+  }
+}
+
+const readLoop = async (device, cb) => {
+  await drainSendQueue(device)
+  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
+  const endpointNumber = endpoint.endpointNumber
+  const frameLength = 0x14
+  const result = await device.transferIn(endpointNumber, frameLength)
+  if (result.status !== 'ok' || !result.data || result.data.byteLength !== frameLength) {
+    throw new Error('Read error')
+  }
+  cb(result)
+  readLoop(device, cb)
 }
 
 const initDevice = async () => {
@@ -198,9 +209,12 @@ const log = (frame) => {
 }
 
 const initReadLoop = async () => {
-  readLoop(device, async (result) => {
+  readLoop(device, (result) => {
     if (buf2hex(result.data.buffer) === 'ffffffffe0070000080000000322f12100000000') {
-      await send(device, 0x7E8, [0x10, 0x21, 0x62, 0xF1, 0x21, 0x31, 0x37, 0x37])
+      sendQueue.push({
+        id: 0x7E8,
+        data: [0x10, 0x21, 0x62, 0xF1, 0x21, 0x31, 0x37, 0x37]
+      })
     }
     if (buf2hex(result.data.buffer).includes('ffffffffe807')) {
       alert('got it')
