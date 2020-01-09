@@ -37,11 +37,6 @@ const GS_USB_BREQ_IDENTIFY = 7
 const GS_CAN_MODE_RESET = 0
 const GS_CAN_MODE_START = 1
 
-const USB_DIR_OUT = 0
-const USB_DIR_IN = 0x80
-const USB_TYPE_VENDOR = (0x02 << 5)
-const USB_RECIP_INTERFACE = 0x01
-
 let device = null
 const sendQueue = []
 
@@ -49,14 +44,14 @@ const buf2hex = (buf) => Array.prototype.map.call(new Uint8Array(buf), x => ('00
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
-const resetDevice = async (device) => {
+const setDeviceMode = async (device, mode, flags) => {
   const bRequest = GS_USB_BREQ_MODE
   const wValue = 0
   const wIndex = device.configurations[0].interfaces[0].interfaceNumber
   const data = new ArrayBuffer(8)
   const dataView = new DataView(data)
-  dataView.setUint32(0, 0x00000000, true) // mode
-  dataView.setUint32(4, 0x00000000, true) // flags
+  dataView.setUint32(0, mode, true)
+  dataView.setUint32(4, flags, true)
   return device.controlTransferOut({
     requestType: 'vendor',
     recipient: 'interface',
@@ -72,7 +67,7 @@ const sendHostConfig = async (device) => {
   const wIndex = device.configurations[0].interfaces[0].interfaceNumber
   const data = new ArrayBuffer(4)
   const dataView = new DataView(data)
-  dataView.setUint32(0, 0x0000BEEF, false) // not little-endian
+  dataView.setUint32(0, 0x0000BEEF, true) // little-endian
   return device.controlTransferOut({
     requestType: 'vendor',
     recipient: 'interface',
@@ -82,60 +77,13 @@ const sendHostConfig = async (device) => {
   }, data)
 }
 
-const readDeviceConfig = async (device) => {
-  const bRequest = GS_USB_BREQ_DEVICE_CONFIG
-  const wValue = 1
-  const wIndex = device.configurations[0].interfaces[0].interfaceNumber
-  const length = 0x0C
-  return device.controlTransferIn({
-    requestType: 'vendor',
-    recipient: 'interface',
-    request: bRequest,
-    value: wValue,
-    index: wIndex
-  }, length)
-}
-
-const fetchBitTimingConstants = async (device) => {
-  const bRequest = GS_USB_BREQ_BT_CONST
-  const wValue = 0
-  const wIndex = device.configurations[0].interfaces[0].interfaceNumber
-  const length = 0x28
-  return device.controlTransferIn({
-    requestType: 'vendor',
-    recipient: 'interface',
-    request: bRequest,
-    value: wValue,
-    index: wIndex
-  }, length)
-}
-
-const startDevice = async (device) => {
-  const bRequest = GS_USB_BREQ_MODE
-  const wValue = 0
-  const wIndex = device.configurations[0].interfaces[0].interfaceNumber
-  const data = new ArrayBuffer(8)
-  const dataView = new DataView(data)
-  dataView.setUint32(0, 0x00000001, true) // mode
-  dataView.setUint32(4, 0x00000000, true) // flags
-  return device.controlTransferOut({
-    requestType: 'vendor',
-    recipient: 'interface',
-    request: bRequest,
-    value: wValue,
-    index: wIndex
-  }, data)
-}
-
-const send = async (device, arbitrationId, message) => {
-  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out')
-  const endpointNumber = endpoint.endpointNumber
+const buildFrame = (arbitrationId, message) => {
   const frameLength = 0x14
   const data = new ArrayBuffer(frameLength)
   const dataView = new DataView(data)
   dataView.setUint32(0x00, 0xffffffff, true) // echo_id
   dataView.setUint32(0x04, arbitrationId, true) // can_id
-  dataView.setUint8(0x08, 0x00) // can_dlc
+  dataView.setUint8(0x08, 0x08) // can_dlc
   dataView.setUint8(0x09, 0x00) // channel
   dataView.setUint8(0x0A, 0x00) // flags
   dataView.setUint8(0x0B, 0x00) // reserved
@@ -147,8 +95,14 @@ const send = async (device, arbitrationId, message) => {
   dataView.setUint8(0x11, message[5])
   dataView.setUint8(0x12, message[6])
   dataView.setUint8(0x13, message[7])
-  console.log(`> ${buf2hex(data)}`)
-  const result = await device.transferOut(endpointNumber, data)
+  return data
+}
+
+const send = async (device, frame) => {
+  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out')
+  const endpointNumber = endpoint.endpointNumber
+  const frameLength = 0x14
+  const result = await device.transferOut(endpointNumber, frame)
   if (result.status !== 'ok' || result.bytesWritten !== frameLength) {
     throw new Error('Write error')
   }
@@ -158,11 +112,11 @@ const send = async (device, arbitrationId, message) => {
 const drainSendQueue = async (device) => {
   while (sendQueue.length) {
     const frame = sendQueue.shift()
-    await send(device, frame.id, frame.data)
+    await send(device, frame)
   }
 }
 
-const readLoop = async (device, cb) => {
+const readWriteLoop = async (device, cb) => {
   await drainSendQueue(device)
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
   const endpointNumber = endpoint.endpointNumber
@@ -172,7 +126,7 @@ const readLoop = async (device, cb) => {
     throw new Error('Read error')
   }
   cb(result)
-  readLoop(device, cb)
+  readWriteLoop(device, cb)
 }
 
 const initDevice = async () => {
@@ -195,11 +149,9 @@ const initDevice = async () => {
   }
   await device.claimInterface(configuration.interfaces[0].interfaceNumber)
   await device.selectAlternateInterface(configuration.interfaces[0].interfaceNumber, 0)
-  await resetDevice(device)
+  await setDeviceMode(device, GS_CAN_MODE_RESET, 0x00000000)
   await sendHostConfig(device)
-  const deviceConfig = await readDeviceConfig(device)
-  const bitTimingConstants = await fetchBitTimingConstants(device)
-  await startDevice(device)
+  await setDeviceMode(device, GS_CAN_MODE_START, 0x00000000)
   return device
 }
 
@@ -208,26 +160,8 @@ const log = (frame) => {
   document.querySelector('#logs').value = `${frame}\n${last1000Lines}`
 }
 
-const initReadLoop = async () => {
-  readLoop(device, (result) => {
-    if (buf2hex(result.data.buffer) === 'ffffffffe0070000080000000322f12100000000') {
-      sendQueue.push({
-        id: 0x7E8,
-        data: [0x10, 0x21, 0x62, 0xF1, 0x21, 0x31, 0x37, 0x37]
-      })
-    }
-    if (buf2hex(result.data.buffer).includes('ffffffffe807')) {
-      alert('got it')
-    }
-    /*const arbitrationId = result.data.getUint16(4, true)
-    const frame = buf2hex(result.data.buffer).slice(24)
-    const stringifiedFrame = JSON.stringify({
-      type: 'in',
-      arbitration_id: arbitrationId.toString(16).padStart(3, '0'),
-      frame,
-      captured: new Date().toISOString()
-    })
-    log(stringifiedFrame)*/
+const initReadWriteLoop = async () => {
+  readWriteLoop(device, (result) => {
     log(buf2hex(result.data.buffer))
   })
 }
@@ -236,24 +170,10 @@ const initEvents = () => {
   const $module = document.querySelector('#module')
   const $message = document.querySelector('#message')
 
-  document.querySelector('#send').addEventListener('click', async () => {
-    const { source: sourceArbitrationId } = moduleArbitrationIds[$module.value]
-    const frame = messages[$message.value]
-    const result = await send(device, sourceArbitrationId, frame)
-    const stringifiedFrame = JSON.stringify({
-      type: 'out',
-      arbitration_id: sourceArbitrationId.toString(16).padStart(3, '0'),
-      frame: buf2hex(frame),
-      sent: new Date().toISOString()
-    })
-    log(stringifiedFrame)
-    // TODO: send continuation frame?
-  })
-
   document.querySelector('#open').addEventListener('click', async () => {
     try {
       device = await initDevice()
-      initReadLoop()
+      initReadWriteLoop()
       document.querySelector('#status').innerHTML = `status: connected (${device.productName})`
     } catch (err) {
       alert(err)
@@ -268,6 +188,13 @@ const initEvents = () => {
     } catch (err) {
       alert(err)
     }
+  })
+
+  document.querySelector('#send').addEventListener('click', async () => {
+    const { source: sourceArbitrationId } = moduleArbitrationIds[$module.value]
+    const message = messages[$message.value]
+    const frame = buildFrame(sourceArbitrationId, message)
+    sendQueue.push(frame)
   })
 }
 
