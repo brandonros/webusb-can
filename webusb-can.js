@@ -18,7 +18,10 @@ const moduleArbitrationIds = {
 }
 
 const messages = {
+  startDiagnosticSession02: [0x02, 0x10, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00],
   startDiagnosticSession03: [0x02, 0x10, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00],
+  requestSeed05: [0x02, 0x27, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00],
+  requestSeed11: [0x02, 0x27, 0x1, 0x00, 0x00, 0x00, 0x00, 0x00],
   readSoftwareNumber: [0x03, 0x22, 0xF1, 0x21, 0x00, 0x00, 0x00, 0x00],
   readPartNumber: [0x03, 0x22, 0xF1, 0x11, 0x00, 0x00, 0x00, 0x00],
   readVin: [0x03, 0x22, 0xF1, 0x90, 0x00, 0x00, 0x00, 0x00],
@@ -149,7 +152,7 @@ const initDevice = async () => {
   await device.selectAlternateInterface(configuration.interfaces[0].interfaceNumber, 0)
   await setDeviceMode(device, GS_CAN_MODE_RESET, 0x00000000)
   await sendHostConfig(device)
-  await setDeviceMode(device, GS_CAN_MODE_START, GS_CAN_MODE_PAD_PKTS_TO_MAX_PKT_SIZE)
+  await setDeviceMode(device, GS_CAN_MODE_START, 0x00000000)
   return device
 }
 
@@ -171,7 +174,6 @@ const initEvents = () => {
   document.querySelector('#open').addEventListener('click', async () => {
     try {
       device = await initDevice()
-      sendQueue.push(buildFrame(0x7E0, messages.testerPresent)) // TODO: remove me
       initReadWriteLoop()
       document.querySelector('#status').innerHTML = `status: connected (${device.productName})`
     } catch (err) {
