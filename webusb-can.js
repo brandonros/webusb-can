@@ -113,7 +113,7 @@ const drainSendQueue = async (device) => {
   while (sendQueue.length) {
     const frame = sendQueue.shift()
     await send(device, frame)
-    log(`> ${frame}`)
+    log(`> ${buf2hex(frame)}`)
   }
 }
 
