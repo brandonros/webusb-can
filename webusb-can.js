@@ -1,3 +1,6 @@
+let device = null
+const sendQueue = []
+
 const moduleArbitrationIds = {
   'w213-cpc': {
     source: 0x7E5,
@@ -30,74 +33,9 @@ const messages = {
   testerPresent: [0x02, 0x3E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00]
 }
 
-const GS_USB_BREQ_HOST_FORMAT = 0
-const GS_USB_BREQ_MODE = 2
-
-const GS_CAN_MODE_RESET = 0
-const GS_CAN_MODE_START = 1
-
-const GS_CAN_MODE_PAD_PKTS_TO_MAX_PKT_SIZE = (1 << 7)
-
-let device = null
-const sendQueue = []
-
 const buf2hex = (buf) => Array.prototype.map.call(new Uint8Array(buf), x => ('00' + x.toString(16)).slice(-2)).join('')
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
-
-const setDeviceMode = async (device, mode, flags) => {
-  const bRequest = GS_USB_BREQ_MODE
-  const wValue = 0 // https://github.com/torvalds/linux/blob/master/drivers/net/can/usb/gs_usb.c#L255
-  const wIndex = device.configurations[0].interfaces[0].interfaceNumber
-  const data = new ArrayBuffer(8)
-  const dataView = new DataView(data)
-  dataView.setUint32(0, mode, true)
-  dataView.setUint32(4, flags, true)
-  return device.controlTransferOut({
-    requestType: 'vendor',
-    recipient: 'interface',
-    request: bRequest,
-    value: wValue,
-    index: wIndex
-  }, data)
-}
-
-const sendHostConfig = async (device) => {
-  const bRequest = GS_USB_BREQ_HOST_FORMAT
-  const wValue = 1 // https://github.com/torvalds/linux/blob/master/drivers/net/can/usb/gs_usb.c#L920
-  const wIndex = device.configurations[0].interfaces[0].interfaceNumber
-  const data = new ArrayBuffer(4)
-  const dataView = new DataView(data)
-  dataView.setUint32(0, 0x0000BEEF, true) // little-endian
-  return device.controlTransferOut({
-    requestType: 'vendor',
-    recipient: 'interface',
-    request: bRequest,
-    value: wValue,
-    index: wIndex
-  }, data)
-}
-
-const buildFrame = (arbitrationId, message) => {
-  const frameLength = 0x14
-  const data = new ArrayBuffer(frameLength)
-  const dataView = new DataView(data)
-  dataView.setUint32(0x00, 0xffffffff, true) // echo_id
-  dataView.setUint32(0x04, arbitrationId, true) // can_id
-  dataView.setUint8(0x08, 0x08) // can_dlc
-  dataView.setUint8(0x09, 0x00) // channel
-  dataView.setUint8(0x0A, 0x00) // flags
-  dataView.setUint8(0x0B, 0x00) // reserved
-  dataView.setUint8(0x0C, message[0])
-  dataView.setUint8(0x0D, message[1])
-  dataView.setUint8(0x0E, message[2])
-  dataView.setUint8(0x0F, message[3])
-  dataView.setUint8(0x10, message[4])
-  dataView.setUint8(0x11, message[5])
-  dataView.setUint8(0x12, message[6])
-  dataView.setUint8(0x13, message[7])
-  return data
-}
 
 const send = async (device, frame) => {
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out')
@@ -135,12 +73,8 @@ const initDevice = async () => {
   const device = await navigator.usb.requestDevice({
     filters: [
       {
-        vendorId: 0x1d50,
-        productId: 0x606f
-      },
-      {
-        vendorId: 0x0483,
-        productId: 0x1234
+        vendorId: 0x067B,
+        productId: 0x2303
       }
     ]
   })
@@ -151,9 +85,6 @@ const initDevice = async () => {
   }
   await device.claimInterface(configuration.interfaces[0].interfaceNumber)
   await device.selectAlternateInterface(configuration.interfaces[0].interfaceNumber, 0)
-  await setDeviceMode(device, GS_CAN_MODE_RESET, 0x00000000)
-  await sendHostConfig(device)
-  await setDeviceMode(device, GS_CAN_MODE_START, 0x00000000)
   return device
 }
 
@@ -195,8 +126,7 @@ const initEvents = () => {
   document.querySelector('#send').addEventListener('click', async () => {
     const { source: sourceArbitrationId } = moduleArbitrationIds[$module.value]
     const message = messages[$message.value]
-    const frame = buildFrame(sourceArbitrationId, message)
-    sendQueue.push(frame)
+    sendQueue.push(buildFrame(sourceArbitrationId, message))
   })
 }
 
