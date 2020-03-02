@@ -33,7 +33,7 @@ const messages = {
 }
 
 const buf2hex = (buf) => Array.prototype.map.call(new Uint8Array(buf), x => ('00' + x.toString(16)).slice(-2)).join('')
-
+const hex2buf = (hex) => new Uint8Array(hex.match(/[\da-f]{2}/gi).map(h => parseInt(h, 16)))
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
 const buildFrame = async (arbitrationId, message) => {
