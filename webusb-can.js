@@ -63,7 +63,7 @@ const readLoop = async (device, cb) => {
   if (result.status !== 'ok') {
     throw new Error('Read error')
   }
-  cb(parseFrame(result))
+  cb(result.data.buffer)
   readLoop(device, cb)
 }
 
@@ -91,12 +91,6 @@ const log = (frame) => {
   document.querySelector('#logs').value = `${frame}\n${last1000Lines}`
 }
 
-const initReadWriteLoop = async () => {
-  readWriteLoop(device, (result) => {
-    log(`< ${buf2hex(result.data.buffer)}`)
-  })
-}
-
 const initEvents = () => {
   const $module = document.querySelector('#module')
   const $message = document.querySelector('#message')
@@ -104,7 +98,11 @@ const initEvents = () => {
   document.querySelector('#open').addEventListener('click', async () => {
     try {
       device = await initDevice()
-      initReadWriteLoop()
+      readLoop(device, (frame) => {
+        console.log(frame)
+        //const { arbitartionId, message } = parseFrame(frame)
+        //log(`< ${buf2hex(result.data.buffer)}`)
+      })
       document.querySelector('#status').innerHTML = `status: connected (${device.productName})`
     } catch (err) {
       alert(err)
