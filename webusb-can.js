@@ -1,5 +1,4 @@
 let device = null
-const sendQueue = []
 
 const moduleArbitrationIds = {
   'w213-cpc': {
@@ -37,6 +36,14 @@ const buf2hex = (buf) => Array.prototype.map.call(new Uint8Array(buf), x => ('00
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms))
 
+const buildFrame = async (arbitrationId, message) => {
+  throw new Error('TODO')
+}
+
+const parseFrame = async (message) => {
+  throw new Error('TODO')
+}
+
 const send = async (device, frame) => {
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out')
   const endpointNumber = endpoint.endpointNumber
@@ -48,16 +55,7 @@ const send = async (device, frame) => {
   return result
 }
 
-const drainSendQueue = async (device) => {
-  while (sendQueue.length) {
-    const frame = sendQueue.shift()
-    await send(device, frame)
-    log(`> ${buf2hex(frame)}`)
-  }
-}
-
-const readWriteLoop = async (device, cb) => {
-  await drainSendQueue(device)
+const readLoop = async (device, cb) => {
   const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
   const endpointNumber = endpoint.endpointNumber
   const maxFrameLength = 32
@@ -65,8 +63,8 @@ const readWriteLoop = async (device, cb) => {
   if (result.status !== 'ok') {
     throw new Error('Read error')
   }
-  cb(result)
-  readWriteLoop(device, cb)
+  cb(parseFrame(result))
+  readLoop(device, cb)
 }
 
 const initDevice = async () => {
@@ -126,7 +124,7 @@ const initEvents = () => {
   document.querySelector('#send').addEventListener('click', async () => {
     const { source: sourceArbitrationId } = moduleArbitrationIds[$module.value]
     const message = messages[$message.value]
-    sendQueue.push(buildFrame(sourceArbitrationId, message))
+    await send(device, buildFrame(sourceArbitrationId, message))
   })
 }
 
