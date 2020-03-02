@@ -45,20 +45,19 @@ const parseFrame = async (message) => {
 }
 
 const send = async (device, frame) => {
-  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out')
+  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'out' && e.type === 'bulk')
   const endpointNumber = endpoint.endpointNumber
-  const frameLength = 0x14
   const result = await device.transferOut(endpointNumber, frame)
-  if (result.status !== 'ok' || result.bytesWritten !== frameLength) {
+  if (result.status !== 'ok' || result.bytesWritten !== frame.length) {
     throw new Error('Write error')
   }
   return result
 }
 
 const readLoop = async (device, cb) => {
-  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in')
+  const endpoint = device.configuration.interfaces[0].alternates[0].endpoints.find(e => e.direction === 'in' && e.type === 'bulk')
   const endpointNumber = endpoint.endpointNumber
-  const maxFrameLength = 32
+  const maxFrameLength = 64
   const result = await device.transferIn(endpointNumber, maxFrameLength)
   if (result.status !== 'ok') {
     throw new Error('Read error')
